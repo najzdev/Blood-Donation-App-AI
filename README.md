@@ -1,300 +1,209 @@
-# 🩸 BloodBank AI — Full MERN + Gemini AI Application
+# 🩸 Dem AI — Blood Donation Platform
 
-A complete blood donation management system with AI-powered patient prioritization and donor matching using **Google Gemini AI**.
+AI-powered blood donation platform built with MERN stack and Google Gemini. Matches donors to patients in real-time based on urgency, blood compatibility, and proximity.
 
 ---
 
 ## 📁 Project Structure
 
 ```
-blood-donation/
-├── backend/                  # Node.js + Express + MongoDB API
-│   ├── models/
-│   │   ├── User.js           # Auth model
-│   │   ├── Donor.js          # Donor profiles
-│   │   ├── Patient.js        # Patient records
-│   │   ├── BloodRequest.js   # Blood request tracking
-│   │   └── Inventory.js      # Blood stock management
-│   ├── routes/
-│   │   ├── auth.js           # JWT authentication
-│   │   ├── donors.js         # Donor CRUD + donation recording
-│   │   ├── patients.js       # Patient CRUD
-│   │   ├── requests.js       # Blood request management
-│   │   ├── inventory.js      # Inventory management
-│   │   └── ai.js             # 🤖 Gemini AI endpoints
-│   ├── middleware/
-│   │   └── auth.js           # JWT middleware
-│   ├── server.js             # Express entry point
-│   ├── .env.example          # Environment variables template
-│   └── package.json
-│
-├── frontend/                 # React 18 SPA
-│   ├── public/
-│   │   └── index.html
-│   ├── src/
-│   │   ├── context/
-│   │   │   └── AuthContext.js    # Auth state management
-│   │   ├── utils/
-│   │   │   └── api.js            # Axios API client
-│   │   ├── components/
-│   │   │   ├── Layout.js         # Sidebar + topbar layout
-│   │   │   └── Layout.css
-│   │   ├── pages/
-│   │   │   ├── Login.js          # Auth page
-│   │   │   ├── Dashboard.js      # Overview + charts
-│   │   │   ├── Donors.js         # Donor management
-│   │   │   ├── Patients.js       # Patient management
-│   │   │   ├── Requests.js       # Blood requests
-│   │   │   ├── Inventory.js      # Blood stock
-│   │   │   ├── AIAnalysis.js     # 🤖 AI patient prioritization
-│   │   │   └── AIChat.js         # 🤖 AI chatbot
-│   │   ├── App.js
-│   │   ├── index.js
-│   │   └── index.css
-│   └── package.json
-│
-├── README.md
-└── docker-compose.yml        # Optional Docker setup
+dem-ai/
+├── client/          # React + Vite frontend
+│   └── src/
+│       ├── components/
+│       │   ├── layout/    # Navbar, DashboardLayout
+│       │   ├── dashboard/ # AIChat, BloodRequestForm, NotificationsPanel
+│       │   └── ui/        # Shared UI components
+│       ├── context/       # AuthContext, ThemeContext
+│       ├── pages/         # Home, About, Login, Register
+│       │   ├── admin/     # Admin dashboard
+│       │   ├── doctor/    # Doctor dashboard
+│       │   ├── donor/     # Donor dashboard
+│       │   └── patient/   # Patient dashboard
+│       ├── locales/       # en.json, fr.json, ar.json
+│       └── utils/         # Axios API config
+└── server/          # Node.js + Express backend
+    ├── controllers/ # authController, userController, etc.
+    ├── middleware/  # auth.js (JWT protect + authorize)
+    ├── models/      # User, BloodRequest, Donation, Notification
+    ├── routes/      # auth, users, requests, donations, ai
+    └── seed.js      # Database seeder
 ```
 
 ---
 
-## 🚀 Quick Start
+## ⚙️ Setup Instructions
 
 ### Prerequisites
-- **Node.js** v18+
-- **MongoDB** (local or Atlas)
-- **Google Gemini API Key** (free at https://aistudio.google.com/app/apikey)
+- Node.js 18+
+- MongoDB (local or Atlas)
+- Google Gemini API key
 
 ---
 
-### 1. Clone & Setup Backend
+### 1. Clone / Extract the project
 
 ```bash
-cd blood-donation/backend
-npm install
+cd dem-ai
+```
 
-# Copy and configure environment variables
+---
+
+### 2. Setup the Server
+
+```bash
+cd server
+npm install
+```
+
+Create `.env` file:
+
+```bash
 cp .env.example .env
 ```
 
-Edit `backend/.env`:
+Edit `.env`:
 ```env
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/blood_donation
+MONGODB_URI=mongodb://localhost:27017/dem-ai
 JWT_SECRET=your_super_secret_key_change_this
+JWT_EXPIRE=7d
 GEMINI_API_KEY=your_gemini_api_key_here
-NODE_ENV=development
+CLIENT_URL=http://localhost:5173
 ```
 
-Start the backend:
+Seed the database with demo data:
 ```bash
-npm run dev        # Development with nodemon (backend)
-# or
-npm start          # Production
+node seed.js
 ```
+
+Start the server:
+```bash
+npm run dev      # development (nodemon)
+npm start        # production
+```
+
+Server runs on: `http://localhost:5000`
 
 ---
 
-### 2. Setup Frontend
+### 3. Setup the Client
 
 ```bash
-cd blood-donation/frontend
+cd ../client
 npm install
-
-# Optional: create .env (proxy is already configured in package.json)
-cp .env.example .env
+npm run dev
 ```
 
-Start the frontend:
-```bash
-npm start          # Opens http://localhost:3000
-```
+Client runs on: `http://localhost:5173`
 
 ---
 
-### 3. Create First Admin User
+## 🔑 Demo Accounts
 
-Register via the UI at http://localhost:3000/login
-- Set role to **Admin** during registration
-- Or seed via API:
-
-```bash
-curl -X POST http://localhost:5000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Admin","email":"admin@bloodbank.com","password":"admin123","role":"admin"}'
-```
+| Role    | Email                  | Password    |
+|---------|------------------------|-------------|
+| Admin   | admin@demai.com        | admin123    |
+| Doctor  | doctor@demai.com       | doctor123   |
+| Donor   | donor@demai.com        | donor123    |
+| Patient | patient@demai.com      | patient123  |
 
 ---
 
-## 🤖 AI Features (Gemini)
+## 🚀 Features
 
-### 1. Patient Priority Analysis
-**Endpoint:** `POST /api/ai/analyze-patients`
+### Authentication & Roles
+- JWT-based auth with role guards
+- 4 roles: Admin, Doctor, Donor, Patient
+- Protected routes per role
 
-Gemini AI evaluates ALL waiting patients and scores them 0–100 based on:
-- Urgency level (critical/urgent/moderate/low)
-- Hemoglobin levels (< 7 g/dL = severe, critical)
-- Oxygen saturation
-- Diagnosis severity (surgery, cancer, thalassemia)
-- Time waiting
-- Available blood inventory
+### AI Matching (Google Gemini)
+- Matches donors to patients by blood compatibility + urgency + location
+- Prioritizes critical cases
+- AI chat assistant (multilingual)
 
-**UI:** Dashboard → "Run AI Analysis" or the AI Analysis page
+### Dashboards
+- **Admin**: Full user/request/donation management + stats
+- **Doctor**: Manage requests, trigger AI matching, view donors
+- **Donor**: Browse available requests, schedule donations
+- **Patient**: Submit requests, track status, view AI matches
 
-### 2. Donor-Patient Matching
-**Endpoint:** `POST /api/ai/match-donor/:patientId`
-
-For a specific patient, Gemini finds and ranks the top 5 best donor matches considering:
-- Blood group compatibility (compatibility matrix)
-- Donor health metrics
-- Time since last donation
-- Donation history reliability
-- Age and weight suitability
-
-**UI:** Patients page → click the 🤖 button on any patient row
-
-### 3. AI Medical Chatbot
-**Endpoint:** `POST /api/ai/chat`
-
-Conversational assistant for blood bank staff. Answers questions about:
-- Blood type compatibility
-- Donor eligibility rules
-- Medical protocols
-- Inventory recommendations
-
-**UI:** AI Assistant page
-
-### 4. Dashboard Insights
-**Endpoint:** `GET /api/ai/insights`
-
-AI-generated operational insights about:
-- Critical inventory warnings
-- Patient backlog analysis
-- Donor recruitment recommendations
-
----
-
-## 🩸 Blood Compatibility Matrix
-
-| Recipient | Can Receive From |
-|-----------|-----------------|
-| A+  | A+, A-, O+, O- |
-| A-  | A-, O- |
-| B+  | B+, B-, O+, O- |
-| B-  | B-, O- |
-| AB+ | All blood types ✓ |
-| AB- | A-, B-, AB-, O- |
-| O+  | O+, O- |
-| O-  | O- only |
+### Other Features
+- Blood request CRUD with urgency levels
+- Real-time notifications
+- Light/Dark mode
+- Multilingual: English, French, Arabic (RTL support)
+- Mobile-responsive design
 
 ---
 
 ## 🔌 API Endpoints
 
-### Auth
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/register` | Register user |
-| POST | `/api/auth/login` | Login |
-| GET  | `/api/auth/me` | Get current user |
+```
+POST   /api/auth/register
+POST   /api/auth/login
+GET    /api/auth/me
+PUT    /api/auth/profile
 
-### Donors
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET    | `/api/donors` | List donors (filterable) |
-| POST   | `/api/donors` | Register donor |
-| PUT    | `/api/donors/:id` | Update donor |
-| DELETE | `/api/donors/:id` | Delete donor |
-| POST   | `/api/donors/:id/donate` | Record donation |
-| GET    | `/api/donors/eligible/:bloodGroup` | Get eligible donors |
+GET    /api/users
+GET    /api/users/:id
+PUT    /api/users/:id        (admin)
+DELETE /api/users/:id        (admin)
 
-### Patients
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET    | `/api/patients` | List patients |
-| POST   | `/api/patients` | Register patient |
-| PUT    | `/api/patients/:id` | Update patient |
-| DELETE | `/api/patients/:id` | Delete patient |
-| GET    | `/api/patients/filter/critical` | Get critical patients |
+GET    /api/requests
+POST   /api/requests
+PUT    /api/requests/:id
+DELETE /api/requests/:id
 
-### Inventory
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET    | `/api/inventory` | Get all inventory |
-| PUT    | `/api/inventory/:bloodGroup` | Update stock |
-| GET    | `/api/inventory/stats/summary` | Summary stats |
+GET    /api/donations
+POST   /api/donations
+PUT    /api/donations/:id
 
-### AI
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST   | `/api/ai/analyze-patients` | 🤖 AI priority analysis |
-| POST   | `/api/ai/match-donor/:id` | 🤖 AI donor matching |
-| POST   | `/api/ai/chat` | 🤖 Medical chatbot |
-| GET    | `/api/ai/insights` | 🤖 Dashboard insights |
+GET    /api/notifications
+PUT    /api/notifications/read-all
+PUT    /api/notifications/:id/read
 
----
-
-## 🐳 Docker (Optional)
-
-```yaml
-# docker-compose.yml included
-docker-compose up -d
+GET    /api/ai/match/:requestId    (doctor/admin)
+GET    /api/ai/prioritize          (doctor/admin)
+POST   /api/ai/chat
 ```
 
-Services:
-- **MongoDB** on port 27017
-- **Backend API** on port 5000
-- **Frontend** on port 3000
+---
+
+## 🌐 Multilingual Support
+
+Languages: `en` (English), `fr` (French), `ar` (Arabic with RTL)
+
+Switch languages from the top navigation bar or the dashboard topbar.
 
 ---
 
-## 🛠 Tech Stack
+## 🛠️ Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 18, React Router 6, Chart.js, React Hot Toast |
-| Backend | Node.js, Express 4, Mongoose |
-| Database | MongoDB |
-| AI | Google Gemini 1.5 Flash |
-| Auth | JWT + bcryptjs |
-| Styling | Custom CSS with CSS Variables |
+| Layer     | Technology                          |
+|-----------|-------------------------------------|
+| Frontend  | React 18, Vite, React Router v6     |
+| Styling   | Custom CSS (design system)          |
+| i18n      | i18next + react-i18next             |
+| Backend   | Node.js, Express                    |
+| Database  | MongoDB + Mongoose                  |
+| Auth      | JWT (jsonwebtoken + bcryptjs)       |
+| AI        | Google Gemini API                   |
+| Icons     | Lucide React                        |
 
 ---
 
-## 📝 Notes
+## 👥 Team
 
-- The Gemini API has a generous **free tier** (60 requests/min)
-- If `GEMINI_API_KEY` is not set, the system falls back to algorithmic scoring
-- Blood expires after **42 days** — tracked in inventory donations
-- Donors must wait **56 days** between donations (WHO standard)
+| Name              | Role                                |
+|-------------------|-------------------------------------|
+| Hamza Labbaalli | Full-Stack Developer & Project Lead |
+| Fatima Tildi     | UI/UX Designer & Frontend Dev       |
+| Lamya Jarrari    | AI Integration & Data Analyst       |
+| Dr. Ouadii | Medical Advisor & Domain Expert     |
 
 ---
 
 ## 📄 License
 
-MIT — Free to use and modify.
-
----
-
-## ⚡ Vite Frontend
-
-The frontend uses **Vite** for ultra-fast development:
-
-```bash
-cd frontend
-npm install
-npm run dev      # → http://localhost:3000 (HMR enabled)
-npm run build    # → production build in /dist
-npm run preview  # → preview production build
-```
-
-### Key Vite files
-| File | Purpose |
-|------|---------|
-| `vite.config.js` | Vite config + `/api` dev proxy to backend |
-| `index.html` | Root HTML entry (at project root, not `/public`) |
-| `src/main.jsx` | JS entry point (`<script type="module">`) |
-| `.env.example` | Use `VITE_` prefix for env vars (`import.meta.env.VITE_*`) |
-
-> **Note:** Vite's dev proxy forwards all `/api/*` requests to `http://localhost:5000` automatically — no CORS issues during development.
+MIT © 2026 Dem AI Team
