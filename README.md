@@ -2,7 +2,7 @@
 
 AI-powered blood donation platform built with MERN stack and Google Gemini. Matches donors to patients in real-time based on urgency, blood compatibility, and proximity.
 
----
+------
 
 ## 📁 Project Structure
 
