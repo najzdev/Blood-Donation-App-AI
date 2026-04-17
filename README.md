@@ -198,8 +198,8 @@ Switch languages from the top navigation bar or the dashboard topbar.
 | Name              | Role                                |
 |-------------------|-------------------------------------|
 | Hamza Labbaalli | Full-Stack Developer & Project Lead |
-| Fatima Tildi     | UI/UX Designer & Frontend Dev       |
-| Lamya Jarrari    | AI Integration & Data Analyst       |
+| Lamya Jarrari  | UI/UX Designer & Frontend Dev       |
+| Fatima Tildi  | AI Integration & Data Analyst       |
 | Dr. Ouadii | Medical Advisor & Domain Expert     |
 
 ---
