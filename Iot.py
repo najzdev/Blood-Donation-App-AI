@@ -1,9 +1,18 @@
-# will be added ESP32 and Alerts once we will have the Componentsfrom machine import Pin
+import machine
+from machine import Pin
 import time
+import network
+import urequests # Standard MicroPython library for HTTP requests
 
 # -----------------------------
-# CONFIG: Blood type → GPIO
+# CONFIG: Pins & Network
 # -----------------------------
+# Replace with your actual credentials
+WIFI_SSID = "YOUR_SSID"
+WIFI_PASSWORD = "YOUR_PASSWORD"
+# Your backend endpoint that returns: {"type": "A+", "alert": "normal"}
+API_URL = "https://your-backend-url.com/api/get-status" 
+
 BLOOD_LEDS = {
     "A+": Pin(2, Pin.OUT),
     "A-": Pin(4, Pin.OUT),
@@ -19,37 +28,23 @@ BLOOD_LEDS = {
 # CORE FUNCTIONS
 # -----------------------------
 def reset_all():
-    """Turn off all LEDs"""
     for led in BLOOD_LEDS.values():
         led.off()
 
 def alert_blood(blood_type, duration=5):
-    """
-    Activate LED for a specific blood type
-    """
     reset_all()
-    
     if blood_type in BLOOD_LEDS:
         led = BLOOD_LEDS[blood_type]
-        
-        # Blink alert (attention mode)
         for _ in range(duration * 2):
             led.on()
             time.sleep(0.5)
             led.off()
             time.sleep(0.5)
-    else:
-        print("Invalid blood type")
 
 def critical_alert(blood_type):
-    """
-    Critical shortage → fast blinking
-    """
     reset_all()
-    
     if blood_type in BLOOD_LEDS:
         led = BLOOD_LEDS[blood_type]
-        
         for _ in range(20):
             led.on()
             time.sleep(0.1)
@@ -57,15 +52,43 @@ def critical_alert(blood_type):
             time.sleep(0.1)
 
 # -----------------------------
-# DEMO LOOP
+# IOT CONNECTION
 # -----------------------------
+def connect_wifi():
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    if not wlan.isconnected():
+        wlan.connect(WIFI_SSID, WIFI_PASSWORD)
+        while not wlan.isconnected():
+            time.sleep(1)
+    print("Connected to Wi-Fi")
+
+def check_backend():
+    try:
+        response = urequests.get(API_URL)
+        data = response.json()
+        response.close()
+        
+        # Mapping response to alert logic
+        # Example JSON: {"type": "A+", "alert": "critical"}
+        b_type = data.get("type")
+        mode = data.get("alert")
+        
+        if mode == "critical":
+            critical_alert(b_type)
+        elif mode == "normal":
+            alert_blood(b_type)
+        else:
+            reset_all()
+            
+    except Exception as e:
+        print("Backend unreachable:", e)
+        reset_all()
+
+# -----------------------------
+# MAIN LOOP
+# -----------------------------
+connect_wifi()
 while True:
-    # Example sequence
-    alert_blood("A+")
-    time.sleep(2)
-    
-    alert_blood("O-")
-    time.sleep(2)
-    
-    critical_alert("AB-")
-    time.sleep(3)
+    check_backend()
+    time.sleep(2) # Polling interval

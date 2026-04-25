@@ -4,6 +4,28 @@ AI-powered blood donation platform built with MERN stack and Google Gemini. Matc
 
 ------
 
+
+## 📸 Screenshots
+
+### 1. Home Page
+![Home Page](./screenshots/home.png)
+
+### 2. Admin Dashboard
+![Admin Dashboard](./screenshots/dash.png)
+
+### 3. Users
+![Doctor Dashboard](./screenshots/users.png)
+
+### 4. Blood
+![Donor Dashboard](./screenshots/blood.png)
+
+### 5. Donation
+![Patient Dashboard](./screenshots/donation.png)
+
+### 6. Chat
+![Patient Dashboard](./screenshots/caht.png)
+
+
 ## 📁 Project Structure
 
 ```
