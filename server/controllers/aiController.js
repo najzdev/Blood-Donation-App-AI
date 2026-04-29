@@ -17,6 +17,11 @@ const COMPATIBLE_BLOOD = {
 exports.matchDonors = async (req, res) => {
   try {
     const { requestId } = req.params;
+    
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ message: 'AI service not configured', error: 'GEMINI_API_KEY is missing' });
+    }
+
     const request = await BloodRequest.findById(requestId).populate('patient');
     if (!request) return res.status(404).json({ message: 'Request not found' });
 
@@ -29,12 +34,12 @@ exports.matchDonors = async (req, res) => {
     });
 
     if (donors.length === 0) {
-      return res.json({ matches: [], aiAnalysis: 'No compatible donors available at this time.' });
+      return res.json({ matches: [], aiAnalysis: 'No compatible donors available at this time.', rankedCount: 0 });
     }
 
     // Build Gemini AI prompt
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const prompt = `You are a medical AI assistant for a blood donation platform called Dem AI.
     
@@ -66,10 +71,19 @@ Respond in JSON format:
 
     try {
       const result = await model.generateContent(prompt);
+      if (!result || !result.response) {
+        throw new Error('Invalid response from Gemini API');
+      }
+      
+      // response.text() is synchronous, not async
       const text = result.response.text();
+      if (!text) {
+        throw new Error('Empty response from Gemini API');
+      }
+      
       const clean = text.replace(/```json|```/g, '').trim();
       const parsed = JSON.parse(clean);
-      aiAnalysis = `${parsed.recommendation} ${parsed.urgencyNote}`;
+      aiAnalysis = `${parsed.recommendation || 'Recommendation pending'} ${parsed.urgencyNote || ''}`.trim();
 
       // Reorder donors based on AI ranking
       const nameToId = {};
@@ -79,8 +93,10 @@ Respond in JSON format:
         .filter(Boolean)
         .slice(0, 5);
       if (rankedDonorIds.length === 0) rankedDonorIds = donors.slice(0, 5).map(d => d._id);
-    } catch {
+    } catch (aiErr) {
+      console.error('Gemini AI Error:', aiErr.message);
       aiAnalysis = `${donors.length} compatible donors found for ${request.bloodType} blood type. Urgency: ${request.urgency}.`;
+      rankedDonorIds = donors.slice(0, 5).map(d => d._id);
     }
 
     // Save AI analysis and matched donors
@@ -101,8 +117,21 @@ Respond in JSON format:
     }));
     if (notifications.length > 0) await Notification.insertMany(notifications);
 
-    res.json({ matches: matchedDonors, aiAnalysis, rankedCount: rankedDonorIds.length });
+    res.json({ 
+      matches: matchedDonors.map(d => ({
+        _id: d._id,
+        name: d.name,
+        bloodType: d.bloodType,
+        city: d.city,
+        phone: d.phone,
+        lastDonationDate: d.lastDonationDate,
+        isAvailable: d.isAvailable
+      })), 
+      aiAnalysis, 
+      rankedCount: rankedDonorIds.length 
+    });
   } catch (err) {
+    console.error('Match Donors Error:', err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -115,26 +144,38 @@ exports.getPrioritizedRequests = async (req, res) => {
 
     if (requests.length === 0) return res.json({ requests: [], aiSummary: 'No pending requests.' });
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    let aiSummary = `${requests.length} pending requests found.`;
 
-    const prompt = `You are a medical AI for a blood donation platform.
+    // Try to get AI summary, but don't fail if Gemini API is unavailable
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+        const prompt = `You are a medical AI for a blood donation platform.
     
 Current pending blood requests:
 ${requests.map((r, i) => `${i+1}. ${r.bloodType} - ${r.units} units - Urgency: ${r.urgency} - City: ${r.city || 'Unknown'} - Required by: ${r.requiredBy ? new Date(r.requiredBy).toDateString() : 'ASAP'}`).join('\n')}
 
 Provide a 2-sentence summary of the most critical needs and prioritization recommendation. Be concise.`;
 
-    let aiSummary = '';
-    try {
-      const result = await model.generateContent(prompt);
-      aiSummary = result.response.text();
-    } catch {
-      aiSummary = `${requests.filter(r => r.urgency === 'critical').length} critical and ${requests.length} total pending requests require attention.`;
+        const result = await model.generateContent(prompt);
+        if (result && result.response) {
+          const text = result.response.text();
+          if (text && text.trim()) {
+            aiSummary = text;
+          }
+        }
+      } catch (aiErr) {
+        console.error('Gemini AI Error (getPrioritizedRequests):', aiErr.message);
+        // Fall back to basic summary
+        aiSummary = `${requests.filter(r => r.urgency === 'critical').length} critical and ${requests.length} total pending requests require attention.`;
+      }
     }
 
     res.json({ requests, aiSummary });
   } catch (err) {
+    console.error('Get Prioritized Requests Error:', err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -142,22 +183,85 @@ Provide a 2-sentence summary of the most critical needs and prioritization recom
 exports.chat = async (req, res) => {
   try {
     const { message, history } = req.body;
+    
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ message: 'AI service not configured', error: 'GEMINI_API_KEY is missing' });
+    }
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({ message: 'Message is required' });
+    }
+
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const systemContext = `You are Dem AI, an intelligent assistant for a blood donation platform. 
 You help donors, patients, doctors, and admins with blood donation information, eligibility, compatibility, and platform usage.
 Be concise, helpful, and empathetic. Respond in the same language the user uses (Arabic, English, or French).`;
 
+    // Format history for Gemini API - ensure first message is from user
+    let formattedHistory = (history || []).map(h => ({
+      role: h.role === 'user' ? 'user' : 'model',
+      parts: [{ text: h.content }]
+    }));
+
+    // If history is empty or first message is not from user, add system context as first user message
+    if (formattedHistory.length === 0 || formattedHistory[0].role !== 'user') {
+      formattedHistory.unshift({
+        role: 'user',
+        parts: [{ text: systemContext }]
+      });
+      formattedHistory.push({
+        role: 'model',
+        parts: [{ text: 'Understood. I am Dem AI. How can I help you with blood donation?' }]
+      });
+    }
+
     const chat = model.startChat({
-      history: (history || []).map(h => ({ role: h.role, parts: [{ text: h.content }] })),
+      history: formattedHistory,
       generationConfig: { maxOutputTokens: 500 },
     });
 
-    const result = await chat.sendMessage(`${systemContext}\n\nUser: ${message}`);
-    const response = result.response.text();
+    // Send user message without system context in the message itself
+    // The system context should only be in the generationConfig or as a separate context
+    const result = await chat.sendMessage(message);
+    
+    if (!result || !result.response) {
+      return res.status(500).json({ message: 'Invalid response from AI service' });
+    }
+
+    // response.text() is synchronous, not async
+    let response;
+    try {
+      response = result.response.text();
+    } catch (textErr) {
+      console.error('Error getting text from response:', textErr);
+      return res.status(500).json({ message: 'Failed to extract text from AI response' });
+    }
+    
+    if (!response || response.trim() === '') {
+      return res.status(500).json({ message: 'AI service returned empty response' });
+    }
+    
     res.json({ response });
   } catch (err) {
-    res.status(500).json({ message: 'AI chat error', error: err.message });
+    console.error('AI Chat Error:', err.message || err);
+    
+    // If Gemini API fails, provide fallback response instead of error
+    if (err.status === 404 || err.message?.includes('not found')) {
+      return res.json({
+        response: `I'm experiencing API issues, but here's some blood donation info:\n\n` +
+          `• Blood Types: O- (universal donor), AB+ (universal recipient)\n` +
+          `• Eligibility: 18-65 years, 50kg+, good health\n` +
+          `• Compatibility: Same type or compatible types required\n\n` +
+          `For full AI assistance, please configure a valid Gemini API key.`
+      });
+    }
+    
+    res.status(500).json({ 
+      message: 'AI chat error', 
+      error: err.message || 'Unknown error',
+      type: err.constructor.name
+    });
   }
 };

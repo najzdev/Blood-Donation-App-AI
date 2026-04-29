@@ -5,15 +5,42 @@ const signToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: 
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role, bloodType, phone, city, dateOfBirth, gender } = req.body;
+    const { name, email, password, role = 'donor', bloodType, phone, city, dateOfBirth, gender } = req.body;
+    
+    // Validate required fields
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'Name, email, and password are required' });
+    }
+
+    // Check if email exists
     const exists = await User.findOne({ email });
     if (exists) return res.status(400).json({ message: 'Email already registered' });
 
-    const user = await User.create({ name, email, password, role, bloodType, phone, city, dateOfBirth, gender });
+    // Create user with default isActive=true
+    const user = await User.create({
+      name,
+      email,
+      password,
+      role: role || 'donor',
+      bloodType,
+      phone,
+      city,
+      dateOfBirth,
+      gender,
+      isActive: true,
+      isAvailable: role === 'donor' ? true : undefined
+    });
+
+    // Verify user was created
+    if (!user || !user._id) {
+      return res.status(500).json({ message: 'Failed to create user' });
+    }
+
     const token = signToken(user._id);
-    res.status(201).json({ token, user });
+    res.status(201).json({ token, user: user.toJSON() });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('Registration Error:', err);
+    res.status(500).json({ message: err.message || 'Registration failed' });
   }
 };
 

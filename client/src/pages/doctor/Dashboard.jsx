@@ -67,6 +67,8 @@ function RequestsPage() {
   const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [expandedRequest, setExpandedRequest] = useState(null)
+  const [matchedDonors, setMatchedDonors] = useState({})
 
   const load = () => api.get('/requests').then(r => setRequests(r.data)).finally(() => setLoading(false))
   useEffect(() => { load() }, [])
@@ -76,9 +78,18 @@ function RequestsPage() {
       toast.loading('Running AI match...')
       const res = await api.get(`/ai/match/${id}`)
       toast.dismiss()
-      toast.success(`${res.data.rankedCount} donors matched!`)
+      if (!res.data.matches || res.data.matches.length === 0) {
+        toast.error('No compatible donors found')
+      } else {
+        setMatchedDonors(prev => ({ ...prev, [id]: res.data.matches }))
+        setExpandedRequest(id)
+        toast.success(`${res.data.rankedCount} donors matched!`)
+      }
       load()
-    } catch { toast.dismiss(); toast.error('Match failed') }
+    } catch (err) { 
+      toast.dismiss(); 
+      toast.error(err.response?.data?.message || 'Match failed') 
+    }
   }
 
   const updateStatus = async (id, status) => {
@@ -100,40 +111,67 @@ function RequestsPage() {
       {loading ? <Loading /> : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {requests.map(r => (
-            <div key={r._id} className="card" style={{ padding: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', flexWrap: 'wrap' }}>
-                <BloodTypeBadge type={r.bloodType} size={40} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '6px' }}>
-                    <span style={{ fontWeight: 700 }}>{r.patient?.name}</span>
-                    <UrgencyBadge urgency={r.urgency} />
-                    <StatusBadge status={r.status} />
-                  </div>
-                  <div style={{ fontSize: '13px', color: 'var(--text2)' }}>
-                    {r.units} units · {r.hospital || r.city} · {r.diagnosis || 'No diagnosis'}
-                  </div>
-                  {r.aiAnalysis && (
-                    <div style={{ marginTop: '8px', padding: '10px', background: 'var(--red-light)', borderRadius: '6px', fontSize: '13px', color: 'var(--text2)' }}>
-                      <strong style={{ color: 'var(--red)' }}>AI: </strong>{r.aiAnalysis}
+            <div key={r._id}>
+              <div className="card" style={{ padding: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', flexWrap: 'wrap' }}>
+                  <BloodTypeBadge type={r.bloodType} size={40} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '6px' }}>
+                      <span style={{ fontWeight: 700 }}>{r.patient?.name}</span>
+                      <UrgencyBadge urgency={r.urgency} />
+                      <StatusBadge status={r.status} />
                     </div>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {r.status === 'pending' && (
-                    <button className="btn btn-sm btn-secondary" onClick={() => runMatch(r._id)}>
-                      <Zap size={12} /> AI Match
+                    <div style={{ fontSize: '13px', color: 'var(--text2)' }}>
+                      {r.units} units · {r.hospital || r.city} · {r.diagnosis || 'No diagnosis'}
+                    </div>
+                    {r.aiAnalysis && (
+                      <div style={{ marginTop: '8px', padding: '10px', background: 'var(--red-light)', borderRadius: '6px', fontSize: '13px', color: 'var(--text2)' }}>
+                        <strong style={{ color: 'var(--red)' }}>AI: </strong>{r.aiAnalysis}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {r.status === 'pending' && (
+                      <button className="btn btn-sm btn-secondary" onClick={() => runMatch(r._id)}>
+                        <Zap size={12} /> AI Match
+                      </button>
+                    )}
+                    {r.status === 'matched' && (
+                      <button className="btn btn-sm btn-primary" onClick={() => updateStatus(r._id, 'fulfilled')}>
+                        Mark Fulfilled
+                      </button>
+                    )}
+                    <button className="btn btn-sm btn-secondary" onClick={() => updateStatus(r._id, 'cancelled')}>
+                      Cancel
                     </button>
-                  )}
-                  {r.status === 'matched' && (
-                    <button className="btn btn-sm btn-primary" onClick={() => updateStatus(r._id, 'fulfilled')}>
-                      Mark Fulfilled
-                    </button>
-                  )}
-                  <button className="btn btn-sm btn-secondary" onClick={() => updateStatus(r._id, 'cancelled')}>
-                    Cancel
-                  </button>
+                  </div>
                 </div>
               </div>
+              {/* Matched Donors List */}
+              {expandedRequest === r._id && matchedDonors[r._id] && matchedDonors[r._id].length > 0 && (
+                <div className="card" style={{ marginTop: '-12px', padding: '16px', background: 'var(--bg3)', borderTop: '1px solid var(--border)' }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '12px', color: 'var(--red)' }}>
+                    Matched Donors ({matchedDonors[r._id].length})
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {matchedDonors[r._id].map((donor, idx) => (
+                      <div key={donor._id} style={{
+                        padding: '10px', background: 'var(--bg2)', borderRadius: '6px', fontSize: '13px',
+                        display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'space-between'
+                      }}>
+                        <div>
+                          <span style={{ fontWeight: 600 }}>#{idx + 1}</span> {donor.name}
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px', fontSize: '12px', color: 'var(--text3)' }}>
+                          <span><BloodTypeBadge type={donor.bloodType} size={20} /></span>
+                          <span>{donor.city || '—'}</span>
+                          <span>{donor.phone || '—'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

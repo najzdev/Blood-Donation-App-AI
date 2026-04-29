@@ -22,10 +22,18 @@ export default function AIChat() {
     setLoading(true)
     try {
       const history = messages.map(m => ({ role: m.role, content: m.content }))
+      console.log('Sending to AI chat:', { message: input, historyLength: history.length })
       const res = await api.post('/ai/chat', { message: input, history })
+      console.log('AI Response:', res.data)
+      if (!res.data || !res.data.response) {
+        throw new Error('Invalid response format from server')
+      }
       setMessages(m => [...m, { role: 'assistant', content: res.data.response }])
-    } catch {
-      setMessages(m => [...m, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }])
+    } catch (err) {
+      console.error('AI Chat Error Full:', err)
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Sorry, I encountered an error. Please try again.'
+      console.log('Error Message to Display:', errorMsg)
+      setMessages(m => [...m, { role: 'assistant', content: `⚠️ Error: ${errorMsg}` }])
     } finally {
       setLoading(false)
     }

@@ -71,9 +71,9 @@ export default function Navbar() {
           </div>
 
           {/* Theme toggle */}
-          <button className="btn btn-ghost btn-sm btn-icon" onClick={toggle}>
+          {/* <button className="btn btn-ghost btn-sm btn-icon" onClick={toggle}>
             {dark ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
+          </button> */}
         </div>
 
         {/* Mobile menu button */}

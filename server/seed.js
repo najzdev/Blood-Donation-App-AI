@@ -10,122 +10,235 @@ const Notification = require('./models/Notification');
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/dem-ai';
 
 async function seed() {
-  await mongoose.connect(MONGO_URI);
-  console.log('Connected to MongoDB');
+  try {
+    await mongoose.connect(MONGO_URI);
+    console.log('✅ Connected to MongoDB');
 
-  // Clear existing
-  await Promise.all([
-    User.deleteMany({}),
-    BloodRequest.deleteMany({}),
-    Donation.deleteMany({}),
-    Notification.deleteMany({}),
-  ]);
-  console.log('Cleared existing data');
+    // Clear existing
+    await Promise.all([
+      User.deleteMany({}),
+      BloodRequest.deleteMany({}),
+      Donation.deleteMany({}),
+      Notification.deleteMany({}),
+    ]);
+    console.log('✅ Cleared existing data');
 
-  const hash = pwd => bcrypt.hash(pwd, 12);
-
-  const users = await User.insertMany([
-    { name: 'Admin User', email: 'admin@demai.com', password: await hash('admin123'), role: 'admin', bloodType: 'O+', city: 'Casablanca', phone: '+212600000001', gender: 'male' },
-    { name: 'Dr. Karim Hassani', email: 'doctor@demai.com', password: await hash('doctor123'), role: 'doctor', bloodType: 'A+', city: 'Rabat', phone: '+212600000002', gender: 'male', licenseNumber: 'MD-12345' },
-    { name: 'Youssef El Amrani', email: 'donor@demai.com', password: await hash('donor123'), role: 'donor', bloodType: 'O+', city: 'Casablanca', phone: '+212600000003', gender: 'male', isAvailable: true },
-    { name: 'Sara Benali', email: 'donor2@demai.com', password: await hash('donor123'), role: 'donor', bloodType: 'A-', city: 'Casablanca', phone: '+212600000004', gender: 'female', isAvailable: true },
-    { name: 'Omar Khalil', email: 'donor3@demai.com', password: await hash('donor123'), role: 'donor', bloodType: 'B+', city: 'Marrakech', phone: '+212600000005', gender: 'male', isAvailable: true },
-    { name: 'Fatima Zahra', email: 'donor4@demai.com', password: await hash('donor123'), role: 'donor', bloodType: 'AB+', city: 'Fes', phone: '+212600000006', gender: 'female', isAvailable: true },
-    { name: 'Ahmed Rachidi', email: 'patient@demai.com', password: await hash('patient123'), role: 'patient', bloodType: 'O-', city: 'Casablanca', phone: '+212600000007', gender: 'male', medicalHistory: 'Thalassemia' },
-    { name: 'Nadia Ouazzani', email: 'patient2@demai.com', password: await hash('patient123'), role: 'patient', bloodType: 'B-', city: 'Rabat', phone: '+212600000008', gender: 'female', medicalHistory: 'Surgery scheduled' },
-  ]);
-  console.log(`Created ${users.length} users`);
-
-  const [admin, doctor, donor1, donor2, donor3, donor4, patient1, patient2] = users;
-
-  const requests = await BloodRequest.insertMany([
-    {
-      patient: patient1._id,
-      doctor: doctor._id,
-      bloodType: 'O-',
-      units: 3,
-      urgency: 'critical',
-      status: 'pending',
-      hospital: 'CHU Ibn Rochd',
-      city: 'Casablanca',
-      diagnosis: 'Post-operative hemorrhage',
-      requiredBy: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    },
-    {
-      patient: patient2._id,
-      bloodType: 'B-',
-      units: 2,
-      urgency: 'high',
-      status: 'pending',
-      hospital: 'Hôpital Avicenne',
-      city: 'Rabat',
-      diagnosis: 'Scheduled surgery',
-      requiredBy: new Date(Date.now() + 48 * 60 * 60 * 1000),
-    },
-    {
-      patient: patient1._id,
+    // Create admin user (HAMZA LABBALLI)
+    console.log('\n📝 Creating users...');
+    const admin = await User.create({
+      name: 'HAMZA LABBALLI',
+      email: 'admin@demai.com',
+      password: 'admin123',
+      role: 'admin',
       bloodType: 'O+',
-      units: 1,
-      urgency: 'medium',
-      status: 'matched',
-      hospital: 'Polyclinique Atlas',
-      city: 'Casablanca',
-      matchedDonors: [donor1._id],
-      aiAnalysis: 'Best match found: Youssef El Amrani (O+, same city). Compatibility: Exact match.',
-    },
-  ]);
-  console.log(`Created ${requests.length} blood requests`);
+      city: 'TANTAN',
+      phone: '+212600000000',
+      gender: 'male',
+      isActive: true
+    });
+    console.log('✅ Created admin: HAMZA LABBALLI');
 
-  const donations = await Donation.insertMany([
-    {
-      donor: donor1._id,
-      request: requests[2]._id,
-      bloodType: 'O+',
-      units: 1,
-      status: 'scheduled',
-      hospital: 'Polyclinique Atlas',
-      city: 'Casablanca',
-      donationDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-    },
-  ]);
-  console.log(`Created ${donations.length} donations`);
+    // Create 8 doctors
+    const doctors = [];
+    const doctorNames = [
+      'Dr. Karim Hassani', 'Dr. Fatiha Achfry', 'Dr. Niama Benhida', 'Dr. Imane El Hanti',
+      'Dr. Mehdi Oulhaj', 'Dr. Hind Chaoui', 'Dr. Rachid Mounir', 'Dr. Zineb Alaoui'
+    ];
+    const doctorCities = ['Rabat', 'Casablanca', 'Marrakech', 'Fes', 'Tangier', 'Agadir', 'Meknes', 'Oujda'];
+    const bloodTypes = ['A+', 'B+', 'O-', 'AB+', 'A-', 'B-', 'O+', 'AB-'];
 
-  await Notification.insertMany([
-    {
-      recipient: patient1._id,
-      type: 'match',
-      title: 'Donor Matched!',
-      message: 'A donor has been matched for your blood request at Polyclinique Atlas.',
-      relatedRequest: requests[2]._id,
-      read: false,
-    },
-    {
-      recipient: donor1._id,
-      type: 'match',
-      title: 'Donation Scheduled',
-      message: 'You have been matched to donate O+ blood at Polyclinique Atlas, Casablanca.',
-      relatedDonation: donations[0]._id,
-      read: false,
-    },
-    {
-      recipient: doctor._id,
-      type: 'urgent',
-      title: 'Critical Request',
-      message: 'Critical O- blood needed - 3 units at CHU Ibn Rochd, Casablanca.',
-      relatedRequest: requests[0]._id,
-      read: false,
-    },
-  ]);
-  console.log('Created notifications');
+    for (let i = 0; i < 8; i++) {
+      const doctor = await User.create({
+        name: doctorNames[i],
+        email: `doctor${i + 1}@demai.com`,
+        password: 'doctor123',
+        role: 'doctor',
+        bloodType: bloodTypes[i],
+        city: doctorCities[i],
+        phone: `+2126000001${i.toString().padStart(2, '0')}`,
+        gender: i % 2 === 0 ? 'male' : 'female',
+        licenseNumber: `MD-${10001 + i}`,
+        isActive: true
+      });
+      doctors.push(doctor);
+    }
+    console.log('✅ Created 8 doctors');
 
-  console.log('\n✅ Database seeded successfully!\n');
-  console.log('Demo accounts:');
-  console.log('  Admin:   admin@demai.com   / admin123');
-  console.log('  Doctor:  doctor@demai.com  / doctor123');
-  console.log('  Donor:   donor@demai.com   / donor123');
-  console.log('  Patient: patient@demai.com / patient123');
+    // Create 8 donors
+    const donors = [];
+    const donorNames = [
+      'Youssef El Amrani', 'Sara Benali', 'Omar Khalil', 'Fatima Zahra',
+      'Hamza Tazi', 'Imane Bouchra', 'Khalid Messaoudi', 'Amina Roudani'
+    ];
 
-  await mongoose.disconnect();
+    for (let i = 0; i < 8; i++) {
+      const donor = await User.create({
+        name: donorNames[i],
+        email: `donor${i + 1}@demai.com`,
+        password: 'donor123',
+        role: 'donor',
+        bloodType: bloodTypes[i],
+        city: doctorCities[i],
+        phone: `+2126000002${i.toString().padStart(2, '0')}`,
+        gender: i % 2 === 0 ? 'male' : 'female',
+        isAvailable: i !== 5, // donor6 unavailable
+        isActive: true
+      });
+      donors.push(donor);
+    }
+    console.log('✅ Created 8 donors');
+
+    // Create 8 patients
+    const patients = [];
+    const patientNames = [
+      'Ahmed Rachidi', 'Nadia Ouazzani', 'Tarik Boujemaa', 'Layla Mansouri',
+      'Soufiane Bennis', 'Houda El Fassi', 'Amine Chraibi', 'Samira Kettani'
+    ];
+    const medicalHistories = [
+      'Thalassemia', 'Surgery scheduled', 'Anemia', 'Leukemia',
+      'Road accident', 'Dialysis', 'Cardiac surgery', 'Post-partum hemorrhage'
+    ];
+
+    for (let i = 0; i < 8; i++) {
+      const patient = await User.create({
+        name: patientNames[i],
+        email: `patient${i + 1}@demai.com`,
+        password: 'patient123',
+        role: 'patient',
+        bloodType: bloodTypes[i],
+        city: doctorCities[i],
+        phone: `+2126000003${i.toString().padStart(2, '0')}`,
+        gender: i % 2 === 0 ? 'male' : 'female',
+        medicalHistory: medicalHistories[i],
+        isActive: true
+      });
+      patients.push(patient);
+    }
+    console.log('✅ Created 8 patients');
+
+    // Create blood requests
+    console.log('\n📝 Creating blood requests...');
+    const requestsData = [];
+    const urgencies = ['critical', 'high', 'medium', 'low'];
+    const hospitals = [
+      'CHU Ibn Rochd', 'Hôpital Avicenne', 'Polyclinique Atlas', 'Hôpital Militaire',
+      'Centre Hospitalier', 'Clinique Moderne', 'Hôpital Provincial', 'Centres de Santé'
+    ];
+
+    for (let i = 0; i < 8; i++) {
+      requestsData.push({
+        patient: patients[i]._id,
+        doctor: doctors[i]._id,
+        bloodType: bloodTypes[i],
+        units: (i % 5) + 1,
+        urgency: urgencies[i % 4],
+        status: i < 2 ? 'pending' : i < 5 ? 'matched' : 'fulfilled',
+        hospital: hospitals[i],
+        city: doctorCities[i],
+        diagnosis: medicalHistories[i],
+        requiredBy: new Date(Date.now() + (24 * (i + 1)) * 60 * 60 * 1000),
+      });
+    }
+    const requests = await BloodRequest.insertMany(requestsData);
+    console.log('✅ Created 8 blood requests');
+
+    // Create donations
+    console.log('\n📝 Creating donations...');
+    const donationsData = [];
+    const donationStatuses = ['scheduled', 'completed', 'completed', 'scheduled'];
+
+    for (let i = 0; i < 8; i++) {
+      donationsData.push({
+        donor: donors[i]._id,
+        request: requests[i]._id,
+        bloodType: bloodTypes[i],
+        units: (i % 3) + 1,
+        status: donationStatuses[i % 4],
+        hospital: hospitals[i],
+        city: doctorCities[i],
+        donationDate: new Date(Date.now() + (2 + i) * 24 * 60 * 60 * 1000),
+      });
+    }
+    const donations = await Donation.insertMany(donationsData);
+    console.log('✅ Created 8 donations');
+
+    // Create notifications
+    console.log('\n📝 Creating notifications...');
+    const notificationsData = [];
+    const notificationTypes = ['match', 'urgent', 'donation', 'request'];
+
+    for (let i = 0; i < 8; i++) {
+      const notifType = notificationTypes[i % 4];
+      let notification = {
+        recipient: i % 2 === 0 ? patients[i]._id : donors[i]._id,
+        type: notifType,
+        read: i > 4,
+        relatedRequest: requests[i]._id,
+      };
+
+      if (notifType === 'match') {
+        notification.title = 'Donor Matched!';
+        notification.message = `A donor has been matched for your blood request at ${hospitals[i]}.`;
+      } else if (notifType === 'urgent') {
+        notification.title = 'Critical Request';
+        notification.message = `Critical ${bloodTypes[i]} blood needed - ${(i % 5) + 1} units at ${hospitals[i]}.`;
+      } else if (notifType === 'donation') {
+        notification.title = 'Donation Scheduled';
+        notification.message = `You have been matched to donate ${bloodTypes[i]} blood at ${hospitals[i]}, ${doctorCities[i]}.`;
+        notification.relatedDonation = donations[i]._id;
+      } else {
+        notification.title = 'New Request';
+        notification.message = `A new blood request has been created: ${bloodTypes[i]} - ${(i % 5) + 1} units.`;
+      }
+
+      notificationsData.push(notification);
+    }
+
+    await Notification.insertMany(notificationsData);
+    console.log('✅ Created 8 notifications');
+
+    console.log('\n' + '='.repeat(70));
+    console.log('✅ DATABASE SEEDED SUCCESSFULLY!');
+    console.log('='.repeat(70));
+    console.log('\n📊 Seeding Summary:');
+    console.log('   • 1 Admin (HAMZA LABBALLI)');
+    console.log('   • 8 Doctors');
+    console.log('   • 8 Donors');
+    console.log('   • 8 Patients');
+    console.log('   • 8 Blood Requests');
+    console.log('   • 8 Donations');
+    console.log('   • 8 Notifications');
+
+    console.log('\n📋 Login Credentials:');
+    console.log('');
+    console.log('👨‍💼 ADMIN (1):');
+    console.log('   Email:    admin@demai.com');
+    console.log('   Password: admin123');
+    console.log('');
+    console.log('👨‍⚕️  DOCTORS (8):');
+    for (let i = 0; i < 8; i++) {
+      console.log(`   doctor${i + 1}@demai.com / doctor123`);
+    }
+    console.log('');
+    console.log('🩸 DONORS (8):');
+    for (let i = 0; i < 8; i++) {
+      console.log(`   donor${i + 1}@demai.com / donor123`);
+    }
+    console.log('');
+    console.log('🏥 PATIENTS (8):');
+    for (let i = 0; i < 8; i++) {
+      console.log(`   patient${i + 1}@demai.com / patient123`);
+    }
+    console.log('');
+    console.log('='.repeat(70));
+
+    await mongoose.disconnect();
+    process.exit(0);
+  } catch (err) {
+    console.error('❌ Error:', err.message);
+    console.error(err);
+    process.exit(1);
+  }
 }
 
-seed().catch(err => { console.error(err); process.exit(1) });
+seed();
